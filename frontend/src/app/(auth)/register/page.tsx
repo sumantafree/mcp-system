@@ -8,6 +8,7 @@ import { auth } from '@/lib/api'
 
 export default function RegisterPage() {
   const router = useRouter()
+
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -15,6 +16,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   })
+
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -28,35 +30,55 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    // ✅ Validation
     if (!formData.email || !formData.username || !formData.full_name || !formData.password) {
       setError('All fields are required.')
       return
     }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match.')
       return
     }
+
     if (formData.password.length < 8) {
       setError('Password must be at least 8 characters.')
       return
     }
 
     setIsLoading(true)
+
     try {
       await auth.register({
         email: formData.email.trim(),
         username: formData.username.trim(),
         full_name: formData.full_name.trim(),
         password: formData.password,
+
+        // ✅ FIX: Add required backend fields
+        phone: "0000000000",
+        whatsapp_number: "0000000000",
       })
+
       setSuccess(true)
       setTimeout(() => router.replace('/login'), 2000)
+
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ||
-        err?.response?.data?.message ||
-        'Registration failed. Please try again.'
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg))
+      console.error("Register error:", err)
+
+      const backendError = err?.response?.data?.detail
+
+      let message = "Registration failed. Please try again."
+
+      // ✅ FIX: Prevent React crash
+      if (Array.isArray(backendError)) {
+        message = backendError[0]?.msg
+      } else if (typeof backendError === "string") {
+        message = backendError
+      }
+
+      setError(message)
+
     } finally {
       setIsLoading(false)
     }
@@ -84,6 +106,7 @@ export default function RegisterPage() {
       </div>
 
       <div className="relative w-full max-w-md">
+
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-500/20 rounded-2xl mb-4 border border-primary-500/30">
@@ -104,95 +127,65 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-dark-text mb-2">Full Name</label>
-              <input
-                type="text"
-                value={formData.full_name}
-                onChange={(e) => handleChange('full_name', e.target.value)}
-                placeholder="John Doe"
-                className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-heading placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition"
-                required
-              />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-dark-text mb-2">Username</label>
-              <input
-                type="text"
-                value={formData.username}
-                onChange={(e) => handleChange('username', e.target.value)}
-                placeholder="johndoe"
-                className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-heading placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition"
-                required
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={formData.full_name}
+              onChange={(e) => handleChange('full_name', e.target.value)}
+              className="input"
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-dark-text mb-2">Email Address</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="you@example.com"
-                className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-heading placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition"
-                autoComplete="email"
-                required
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Username"
+              value={formData.username}
+              onChange={(e) => handleChange('username', e.target.value)}
+              className="input"
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-dark-text mb-2">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                  placeholder="Min. 8 characters"
-                  className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 pr-12 text-dark-heading placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dark-text hover:text-dark-heading transition"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
+            <input
+              type="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={(e) => handleChange('email', e.target.value)}
+              className="input"
+              required
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-dark-text mb-2">Confirm Password</label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={formData.confirmPassword}
-                onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                placeholder="Repeat your password"
-                className="w-full bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-dark-heading placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500 transition"
-                required
-              />
-            </div>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={formData.password}
+              onChange={(e) => handleChange('password', e.target.value)}
+              className="input"
+              required
+            />
+
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Confirm Password"
+              value={formData.confirmPassword}
+              onChange={(e) => handleChange('confirmPassword', e.target.value)}
+              className="input"
+              required
+            />
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-primary-500/50 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-primary-500 text-white py-3 rounded-xl"
             >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                'Create Account'
-              )}
+              {isLoading ? "Creating..." : "Create Account"}
             </button>
+
           </form>
 
-          <p className="text-center text-dark-text text-sm mt-6">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary-400 hover:text-primary-300 font-medium transition">
+          <p className="text-center mt-6 text-sm text-dark-text">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary-400">
               Sign in
             </Link>
           </p>
