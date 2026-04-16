@@ -6,7 +6,7 @@ from database.database import get_db
 from database import models
 from core.dependencies import get_current_user
 from agents.content_agent import ContentAgent
-from python_slugify import slugify
+from slugify import slugify
 from datetime import datetime
 from typing import Optional, List
 
