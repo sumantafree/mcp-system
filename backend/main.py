@@ -4,18 +4,34 @@
 ║  Modular Capability Programs — FastAPI Application           ║
 ╚══════════════════════════════════════════════════════════════╝
 """
+"""
+MCP SYSTEM — BACKEND ENTRY POINT
+"""
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core.config import settings
-from database.database import create_all_tables
+from database.database import create_all_tables, get_db
 from middleware.logging import RequestLoggingMiddleware
 
 # Routers
 from routers import auth, tasks, seo, content, social, youtube, crm, website, analytics, assistant
+
+# Models & deps
+from core.dependencies import get_current_user
+from database import models as _models
+from pydantic import BaseModel as _BaseModel
+from typing import List as _List
+
+# Pipelines
+from agents import (
+    run_seo_to_content_pipeline,
+    run_content_to_social_pipeline,
+    run_crm_auto_followup_pipeline,
+)
 
 # ── Logging ──────────────────────────────
 logging.basicConfig(
@@ -38,22 +54,6 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────
 app = FastAPI(
     title="MCP System API",
-    description="""
-## Modular Capability Programs — AI-Powered Productivity System
-
-### Modules:
-| # | Module | Description |
-|---|--------|-------------|
-| 1 | Task Manager | NLP task creation, priority AI, notifications |
-| 2 | SEO | Keyword clustering, meta generation, redirect automation |
-| 3 | Content | Blog generation, news rewriting, multi-language |
-| 4 | Social Media | Auto scheduling, hashtags, content calendar |
-| 5 | YouTube | Scripts, title optimization, Shorts |
-| 6 | CRM + WhatsApp | Lead scoring, automated follow-ups |
-| 7 | Website | Broken link detection, auto page generation |
-| 8 | Analytics | Dashboard, weekly reports, AI insights |
-| 9 | ARIA Assistant | Natural language controller for all MCPs |
-    """,
     version=settings.APP_VERSION,
     lifespan=lifespan,
     docs_url="/docs",
@@ -61,17 +61,22 @@ app = FastAPI(
 )
 
 
-# ── Middleware ────────────────────────────
+# ── CORS (VERY IMPORTANT) ─────────────────
+origins = [
+    "https://mcp-system-cyan.vercel.app",
+    "http://localhost:3000",  # optional
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://mcp-system-cyan.vercel.app",
-        "http://localhost:3000",  # optional for testing
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Custom Logging Middleware ─────────────
 app.add_middleware(RequestLoggingMiddleware)
 
 
@@ -108,20 +113,7 @@ def health():
     return {"status": "healthy", "env": settings.APP_ENV}
 
 
-# ── Cross-Module Pipeline Endpoints ──────────
-from fastapi import Depends
-from database.database import get_db
-from core.dependencies import get_current_user
-from database import models as _models
-from pydantic import BaseModel as _BaseModel
-from typing import List as _List
-from agents import (
-    run_seo_to_content_pipeline,
-    run_content_to_social_pipeline,
-    run_crm_auto_followup_pipeline,
-)
-
-
+# ── Pipelines ─────────────────────────────
 class SEOToContentRequest(_BaseModel):
     topic: str
     keywords: _List[str]
@@ -138,8 +130,9 @@ async def pipeline_seo_to_content(
     db=Depends(get_db),
     current_user: _models.User = Depends(get_current_user),
 ):
-    """Pipeline: Cluster keywords → pick best → generate full blog."""
-    return await run_seo_to_content_pipeline(db, current_user.id, data.topic, data.keywords)
+    return await run_seo_to_content_pipeline(
+        db, current_user.id, data.topic, data.keywords
+    )
 
 
 @app.post("/pipelines/content-to-social", tags=["Pipelines"])
@@ -148,8 +141,9 @@ async def pipeline_content_to_social(
     db=Depends(get_db),
     current_user: _models.User = Depends(get_current_user),
 ):
-    """Pipeline: Blog title → generate platform-native posts for all platforms."""
-    return await run_content_to_social_pipeline(db, current_user.id, data.blog_title, data.platforms)
+    return await run_content_to_social_pipeline(
+        db, current_user.id, data.blog_title, data.platforms
+    )
 
 
 @app.post("/pipelines/crm-auto-followup", tags=["Pipelines"])
@@ -157,20 +151,30 @@ async def pipeline_crm_followup(
     db=Depends(get_db),
     current_user: _models.User = Depends(get_current_user),
 ):
-    """Pipeline: Check all due leads → generate follow-up messages (review before sending)."""
     return await run_crm_auto_followup_pipeline(db, current_user.id)
 
 
-# ── Global Error Handler ──────────────────
+# ── Global Error Handler (FIXES YOUR ISSUE) ──
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled error: {exc}", exc_info=True)
-    return JSONResponse(
+
+    response = JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error", "type": type(exc).__name__},
+        content={
+            "detail": str(exc),
+            "type": type(exc).__name__,
+        },
     )
 
+    # ✅ CRITICAL: Ensure CORS headers even on error
+    response.headers["Access-Control-Allow-Origin"] = "https://mcp-system-cyan.vercel.app"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
 
+    return response
+
+
+# ── Run ───────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
