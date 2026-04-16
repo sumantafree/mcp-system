@@ -2,8 +2,7 @@
 
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Eye, EyeOff, Zap, AlertCircle, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
 import { auth } from '@/lib/api'
 
 export default function RegisterPage() {
@@ -22,27 +21,37 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  const [passwordStrength, setPasswordStrength] = useState(0)
+
+  // 🔥 LIVE VALIDATION
   function handleChange(field: string, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }))
+
+    if (field === 'password') {
+      let strength = 0
+      if (value.length >= 6) strength++
+      if (/[A-Z]/.test(value)) strength++
+      if (/[0-9]/.test(value)) strength++
+      setPasswordStrength(strength)
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError('')
 
-    // ✅ Validation
-    if (!formData.email || !formData.username || !formData.full_name || !formData.password) {
-      setError('All fields are required.')
+    if (!formData.email || !formData.password) {
+      setError('Email and password are required')
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match.')
+      setError('Passwords do not match')
       return
     }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters.')
+    if (formData.password.length > 72) {
+      setError('Password too long (max 72 characters)')
       return
     }
 
@@ -50,28 +59,26 @@ export default function RegisterPage() {
 
     try {
       await auth.register({
-        email: formData.email.trim(),
-        username: formData.username.trim(),
-        full_name: formData.full_name.trim(),
+        email: formData.email,
         password: formData.password,
-
+        username: formData.username || undefined,
+        full_name: formData.full_name || undefined,
       })
 
       setSuccess(true)
-      setTimeout(() => router.replace('/login'), 2000)
+      setTimeout(() => router.push('/login'), 2000)
 
     } catch (err: any) {
-      console.error("Register error:", err)
+      let message = "Registration failed"
 
-      const backendError = err?.response?.data?.detail
+      const backend = err?.response?.data?.detail
 
-      let message = "Registration failed. Please try again."
+      if (typeof backend === "string") {
+        message = backend
+      }
 
-      // ✅ FIX: Prevent React crash
-      if (Array.isArray(backendError)) {
-        message = backendError[0]?.msg
-      } else if (typeof backendError === "string") {
-        message = backendError
+      if (message.includes("72")) {
+        message = "Password too long (max 72 characters)"
       }
 
       setError(message)
@@ -81,113 +88,139 @@ export default function RegisterPage() {
     }
   }
 
+  // 🎉 SUCCESS STATE
   if (success) {
     return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#0B1120] text-white">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-success/20 rounded-2xl mb-4">
-            <CheckCircle className="w-8 h-8 text-success" />
-          </div>
-          <h2 className="text-2xl font-bold text-dark-heading">Account created!</h2>
-          <p className="text-dark-text mt-2">Redirecting to login...</p>
+          <CheckCircle className="mx-auto mb-4 text-green-400" size={48} />
+          <h2 className="text-2xl font-semibold">Account Created</h2>
+          <p className="text-gray-400 mt-2">Redirecting to login...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-4">
 
-      <div className="relative w-full max-w-md">
+      <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
 
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-500/20 rounded-2xl mb-4 border border-primary-500/30">
-            <Zap className="w-8 h-8 text-primary-400" />
+        <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
+        <p className="text-gray-400 mb-6">Start your journey</p>
+
+        {/* ERROR */}
+        {error && (
+          <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 p-3 rounded-lg mb-4">
+            <AlertCircle size={18} className="text-red-400" />
+            <span className="text-red-400 text-sm">{error}</span>
           </div>
-          <h1 className="text-3xl font-bold text-dark-heading">MCP System</h1>
-          <p className="text-dark-text mt-2">Create your account</p>
-        </div>
+        )}
 
-        <div className="bg-dark-card border border-dark-border rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-semibold text-dark-heading mb-6">Get started for free</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-          {error && (
-            <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-          )}
+          <input
+            type="text"
+            placeholder="Full Name (optional)"
+            value={formData.full_name}
+            onChange={(e) => handleChange('full_name', e.target.value)}
+            className="input"
+          />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            placeholder="Username (optional)"
+            value={formData.username}
+            onChange={(e) => handleChange('username', e.target.value)}
+            className="input"
+          />
 
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={formData.full_name}
-              onChange={(e) => handleChange('full_name', e.target.value)}
-              className="input"
-              required
-            />
+          <input
+            type="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={(e) => handleChange('email', e.target.value)}
+            className="input"
+            required
+          />
 
-            <input
-              type="text"
-              placeholder="Username"
-              value={formData.username}
-              onChange={(e) => handleChange('username', e.target.value)}
-              className="input"
-              required
-            />
-
-            <input
-              type="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              className="input"
-              required
-            />
-
+          <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="Password"
               value={formData.password}
               onChange={(e) => handleChange('password', e.target.value)}
-              className="input"
+              className="input pr-10"
               required
             />
-
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={(e) => handleChange('confirmPassword', e.target.value)}
-              className="input"
-              required
-            />
-
             <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-primary-500 text-white py-3 rounded-xl"
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-400"
             >
-              {isLoading ? "Creating..." : "Create Account"}
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
+          </div>
 
-          </form>
+          {/* 🔥 PASSWORD STRENGTH */}
+          <div className="h-2 rounded bg-gray-700 overflow-hidden">
+            <div
+              className={`h-full transition-all ${
+                passwordStrength === 1 ? 'bg-red-500 w-1/3' :
+                passwordStrength === 2 ? 'bg-yellow-500 w-2/3' :
+                passwordStrength === 3 ? 'bg-green-500 w-full' :
+                'w-0'
+              }`}
+            />
+          </div>
 
-          <p className="text-center mt-6 text-sm text-dark-text">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary-400">
-              Sign in
-            </Link>
-          </p>
-        </div>
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            value={formData.confirmPassword}
+            onChange={(e) => handleChange('confirmPassword', e.target.value)}
+            className="input"
+            required
+          />
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700 transition py-3 rounded-lg font-semibold text-white"
+          >
+            {isLoading ? "Creating..." : "Create Account"}
+          </button>
+
+        </form>
+
+        <p className="text-sm text-gray-400 mt-6 text-center">
+          Already have an account?{" "}
+          <a href="/login" className="text-blue-400 hover:underline">
+            Sign in
+          </a>
+        </p>
       </div>
+
+      {/* 🔥 GLOBAL INPUT STYLE */}
+      <style jsx global>{`
+        .input {
+          width: 100%;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          padding: 12px 14px;
+          border-radius: 10px;
+          color: white;
+          outline: none;
+        }
+        .input::placeholder {
+          color: #9CA3AF;
+        }
+        .input:focus {
+          border-color: #3B82F6;
+          box-shadow: 0 0 0 1px #3B82F6;
+        }
+      `}</style>
+
     </div>
   )
 }
