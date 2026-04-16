@@ -55,9 +55,6 @@ export default function RegisterPage() {
         full_name: formData.full_name.trim(),
         password: formData.password,
 
-        // ✅ FIX: Add required backend fields
-        phone: "0000000000",
-        whatsapp_number: "0000000000",
       })
 
       setSuccess(true)
