@@ -61,8 +61,8 @@ export default function RegisterPage() {
       await auth.register({
         email: formData.email,
         password: formData.password,
-        username: formData.username || undefined,
-        full_name: formData.full_name || undefined,
+        username: formData.username || "",
+        full_name: formData.full_name || "",
       })
 
       setSuccess(true)
