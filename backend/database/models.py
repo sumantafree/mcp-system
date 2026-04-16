@@ -396,7 +396,7 @@ class AnalyticsEvent(Base):
     event_type = Column(String(100), nullable=False)
     module = Column(String(50))  # task, seo, content, social, etc.
     user_id = Column(Integer, ForeignKey("users.id"))
-    metadata = Column(JSON, default={})
+    meta_data = Column(JSON, default={})
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 
 
@@ -426,7 +426,7 @@ class Notification(Base):
     type = Column(Enum(NotificationType), default=NotificationType.in_app)
     is_read = Column(Boolean, default=False)
     action_url = Column(Text)
-    metadata = Column(JSON, default={})
+    meta_data = Column(JSON, default={})
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="notifications")

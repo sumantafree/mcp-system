@@ -220,7 +220,7 @@ class BaseMCPAgent:
             event_type=event_type,
             module=self.MODULE_NAME,
             user_id=self.user_id,
-            metadata=metadata or {},
+            meta_data=metadata or {},
         )
         self.db.add(event)
         try:
