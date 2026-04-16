@@ -1,25 +1,31 @@
-"""Authentication router — login, register, Google OAuth, profile."""
+"""
+Authentication router — clean & production-ready
+"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime
+
 from database.database import get_db
 from database import models
 from core.security import hash_password, verify_password, create_access_token
 from core.dependencies import get_current_user
-from datetime import datetime
-from typing import Optional
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-# ── Schemas ──────────────────────────────
+# ─────────────────────────────
+# SCHEMAS
+# ─────────────────────────────
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    username: str
-    full_name: str
     password: str
+
+    username: Optional[str] = None
+    full_name: Optional[str] = None
     phone: Optional[str] = None
     whatsapp_number: Optional[str] = None
 
@@ -27,8 +33,8 @@ class RegisterRequest(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    username: str
-    full_name: str
+    username: Optional[str] = None
+    full_name: Optional[str] = None
     role: str
     avatar_url: Optional[str] = None
     is_active: bool
@@ -52,15 +58,29 @@ class UpdateProfileRequest(BaseModel):
     avatar_url: Optional[str] = None
 
 
-# ── Endpoints ────────────────────────────
+# ─────────────────────────────
+# REGISTER
+# ─────────────────────────────
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(models.User).filter_by(email=data.email).first():
-        raise HTTPException(400, "Email already registered")
-    if db.query(models.User).filter_by(username=data.username).first():
-        raise HTTPException(400, "Username already taken")
 
+    # ✅ Check email
+    existing_user = db.query(models.User).filter_by(email=data.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # ✅ Check username (only if provided)
+    if data.username:
+        existing_username = db.query(models.User).filter_by(username=data.username).first()
+        if existing_username:
+            raise HTTPException(status_code=400, detail="Username already taken")
+
+    # ✅ Password validation
+    if len(data.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    # ✅ Create user
     user = models.User(
         email=data.email,
         username=data.username,
@@ -68,44 +88,76 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
         hashed_password=hash_password(data.password),
         phone=data.phone,
         whatsapp_number=data.whatsapp_number,
-        role=models.UserRole.admin,  # First user is admin
+        role=models.UserRole.admin,  # You can later change this logic
         is_active=True,
         is_verified=True,
+        created_at=datetime.utcnow(),
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
+    # ✅ Create token
+    token = create_access_token({
+        "sub": str(user.id),
+        "role": user.role.value
+    })
 
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse.model_validate(user)
+    )
+
+
+# ─────────────────────────────
+# LOGIN
+# ─────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+
     user = db.query(models.User).filter(
-        (models.User.email == form.username) | (models.User.username == form.username)
+        (models.User.email == form.username) |
+        (models.User.username == form.username)
     ).first()
 
-    if not user or not verify_password(form.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    if not user.is_active:
-        raise HTTPException(400, "Account is inactive")
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
 
+    if not verify_password(form.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Account is inactive")
+
+    # ✅ Update last login
     user.last_login = datetime.utcnow()
     db.commit()
 
-    token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
+    token = create_access_token({
+        "sub": str(user.id),
+        "role": user.role.value
+    })
 
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse.model_validate(user)
+    )
+
+
+# ─────────────────────────────
+# GET CURRENT USER
+# ─────────────────────────────
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
+
+# ─────────────────────────────
+# UPDATE PROFILE
+# ─────────────────────────────
 
 @router.patch("/me", response_model=UserResponse)
 def update_profile(
@@ -113,15 +165,24 @@ def update_profile(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    for field, value in data.model_dump(exclude_none=True).items():
+
+    update_data = data.model_dump(exclude_none=True)
+
+    for field, value in update_data.items():
         setattr(current_user, field, value)
+
     current_user.updated_at = datetime.utcnow()
+
     db.commit()
     db.refresh(current_user)
+
     return current_user
 
 
+# ─────────────────────────────
+# LOGOUT
+# ─────────────────────────────
+
 @router.post("/logout")
 def logout(current_user: models.User = Depends(get_current_user)):
-    # Token invalidation is handled client-side (stateless JWT)
     return {"message": "Logged out successfully"}
