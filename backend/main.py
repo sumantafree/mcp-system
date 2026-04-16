@@ -64,7 +64,10 @@ app = FastAPI(
 # ── Middleware ────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=[
+        "https://mcp-system-cyan.vercel.app",
+        "http://localhost:3000",  # optional for testing
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
