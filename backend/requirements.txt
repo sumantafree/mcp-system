@@ -50,3 +50,5 @@ pandas==2.2.2
 
 # Image Processing (stable for Python 3.11)
 Pillow==10.2.0
+
+argon2-cffi==23.1.0
