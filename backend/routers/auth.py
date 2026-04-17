@@ -1,10 +1,11 @@
 """
-Authentication router — clean & production-ready
+Authentication router — production-ready (fixed password handling)
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
@@ -22,7 +23,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, max_length=128)
 
     username: Optional[str] = None
     full_name: Optional[str] = None
@@ -70,25 +71,25 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # ✅ Check username (only if provided)
+    # ✅ Check username
     if data.username:
         existing_username = db.query(models.User).filter_by(username=data.username).first()
         if existing_username:
             raise HTTPException(status_code=400, detail="Username already taken")
 
-    # ✅ Password validation
-    if len(data.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    # ✅ Extra safety validation (optional)
+    if len(data.password) > 128:
+        raise HTTPException(status_code=400, detail="Password too long (max 128 characters)")
 
     # ✅ Create user
     user = models.User(
         email=data.email,
         username=data.username,
         full_name=data.full_name,
-        hashed_password=hash_password(data.password),
+        hashed_password=hash_password(data.password),  # 🔐 secure hashing
         phone=data.phone,
         whatsapp_number=data.whatsapp_number,
-        role=models.UserRole.admin,  # You can later change this logic
+        role=models.UserRole.admin,
         is_active=True,
         is_verified=True,
         created_at=datetime.utcnow(),
@@ -125,6 +126,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
+    # 🔐 secure verification (matches updated hash logic)
     if not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid password")
 
