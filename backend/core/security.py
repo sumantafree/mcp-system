@@ -7,6 +7,8 @@ from core.config import settings
 import hashlib
 
 # Password hashing context
+
+ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # ─────────────────────────────
