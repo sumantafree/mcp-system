@@ -14,11 +14,15 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # PASSWORD HASHING (SAFE FIX)
 # ─────────────────────────────
 
+def _truncate(password: str) -> str:
+    """bcrypt silently truncates at 72 bytes — enforce it explicitly."""
+    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(_truncate(password))
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return pwd_context.verify(_truncate(plain), hashed)
 
 
 # ─────────────────────────────
