@@ -9,47 +9,20 @@ import hashlib
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-ALGORITHM = "HS256"
-
-
 # ─────────────────────────────
 # PASSWORD HASHING (SAFE FIX)
 # ─────────────────────────────
 
-def _pre_hash(password: str) -> str:
-    """
-    Convert password to fixed-length SHA256 hash
-    This completely removes bcrypt 72-char limitation
-    """
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
-
 def hash_password(password: str) -> str:
-    """
-    Hash password securely (SHA256 → bcrypt)
-    """
-    if not password:
-        raise ValueError("Password cannot be empty")
-
-    pre_hashed = _pre_hash(password)
-
-    # bcrypt now receives fixed 64-char string → always safe
+    """Hash a password using SHA256 then bcrypt"""
+    # SHA256 produces 64 bytes which is under bcrypt's 72 byte limit
+    pre_hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
     return pwd_context.hash(pre_hashed)
 
-
-def verify_password(plain: str, hashed: str) -> bool:
-    """
-    Verify password using same SHA256 → bcrypt pipeline
-    """
-    if not plain or not hashed:
-        return False
-
-    pre_hashed = _pre_hash(plain)
-
-    try:
-        return pwd_context.verify(pre_hashed, hashed)
-    except Exception:
-        return False
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against its hash"""
+    pre_hashed = hashlib.sha256(plain_password.encode('utf-8')).hexdigest()
+    return pwd_context.verify(pre_hashed, hashed_password)
 
 
 # ─────────────────────────────
