@@ -63,8 +63,9 @@ app = FastAPI(
 
 # ── CORS (VERY IMPORTANT) ─────────────────
 origins = [
-    "https://mcp-system-cyan.vercel.app",
-    "http://localhost:3000",  # optional
+    "https://mcp-system-cyan.vercel.app",   # Vercel default URL (keep this)
+    "https://mcp.theaihublab.com",           # Custom subdomain
+    "http://localhost:3000",
 ]
 
 app.add_middleware(
@@ -167,8 +168,11 @@ async def global_exception_handler(request: Request, exc: Exception):
         },
     )
 
-    # ✅ CRITICAL: Ensure CORS headers even on error
-    response.headers["Access-Control-Allow-Origin"] = "https://mcp-system-cyan.vercel.app"
+    # Ensure CORS headers even on error responses
+    origin = request.headers.get("origin", "")
+    allowed = {"https://mcp-system-cyan.vercel.app", "https://mcp.theaihublab.com"}
+    if origin in allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Credentials"] = "true"
 
     return response
