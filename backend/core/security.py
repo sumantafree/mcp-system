@@ -6,37 +6,50 @@ from fastapi import HTTPException, status
 from core.config import settings
 import hashlib
 
+# Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ALGORITHM = "HS256"
 
 
 # ─────────────────────────────
-# PASSWORD HASHING (FIXED)
+# PASSWORD HASHING (SAFE FIX)
 # ─────────────────────────────
 
 def _pre_hash(password: str) -> str:
     """
-    🔐 Convert password to fixed-length using SHA256
-    This removes bcrypt 72-char limitation safely
+    Convert password to fixed-length SHA256 hash
+    This completely removes bcrypt 72-char limitation
     """
-    return hashlib.sha256(password.encode()).hexdigest()
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def hash_password(password: str) -> str:
     """
-    Hash password securely using SHA256 → bcrypt
+    Hash password securely (SHA256 → bcrypt)
     """
+    if not password:
+        raise ValueError("Password cannot be empty")
+
     pre_hashed = _pre_hash(password)
+
+    # bcrypt now receives fixed 64-char string → always safe
     return pwd_context.hash(pre_hashed)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """
-    Verify password using same SHA256 → bcrypt flow
+    Verify password using same SHA256 → bcrypt pipeline
     """
+    if not plain or not hashed:
+        return False
+
     pre_hashed = _pre_hash(plain)
-    return pwd_context.verify(pre_hashed, hashed)
+
+    try:
+        return pwd_context.verify(pre_hashed, hashed)
+    except Exception:
+        return False
 
 
 # ─────────────────────────────
@@ -44,10 +57,15 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ─────────────────────────────
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create JWT access token
+    """
     to_encode = data.copy()
+
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+
     to_encode.update({
         "exp": expire,
         "iat": datetime.utcnow()
@@ -57,6 +75,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 
 def decode_token(token: str) -> dict:
+    """
+    Decode JWT token safely
+    """
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
