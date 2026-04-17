@@ -51,7 +51,7 @@ export default function RegisterPage() {
     }
 
     if (formData.password.length > 72) {
-      setError('Password too long (max 72 characters)')
+      setError('Password must be less than 72 characters)')
       return
     }
 
@@ -69,16 +69,19 @@ export default function RegisterPage() {
       setTimeout(() => router.push('/login'), 2000)
 
     } catch (err: any) {
-      let message = "Registration failed"
+      console.error("Register error:", err)
 
-      const backend = err?.response?.data?.detail
+  const backend = err?.response?.data?.detail
 
-      if (typeof backend === "string") {
-        message = backend
-      }
+  let message = "Registration failed"
 
-      if (message.includes("72")) {
-        message = "Password too long (max 72 characters)"
+  if (Array.isArray(backend)) {
+    message = backend[0]?.msg || message
+  } else if (typeof backend === "string") {
+    message = backend
+  }
+
+  setError(message)
       }
 
       setError(message)
