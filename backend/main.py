@@ -61,12 +61,15 @@ app = FastAPI(
 )
 
 
-# ── CORS (VERY IMPORTANT) ─────────────────
-origins = [
-    "https://mcp-system-cyan.vercel.app",   # Vercel default URL (keep this)
-    "https://mcp.theaihublab.com",           # Custom subdomain
+# ── CORS ──────────────────────────────────
+# Always include these + anything in the CORS_ORIGINS env var
+_base_origins = [
+    "https://mcp-system-cyan.vercel.app",
+    "https://mcp.theaihublab.com",
     "http://localhost:3000",
 ]
+_env_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+origins = list(set(_base_origins + _env_origins))
 
 app.add_middleware(
     CORSMiddleware,
