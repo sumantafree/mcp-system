@@ -20,10 +20,8 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-
   const [passwordStrength, setPasswordStrength] = useState(0)
 
-  // 🔥 LIVE VALIDATION
   function handleChange(field: string, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }))
 
@@ -40,6 +38,7 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    // ✅ Validation
     if (!formData.email || !formData.password) {
       setError('Email and password are required')
       return
@@ -51,7 +50,7 @@ export default function RegisterPage() {
     }
 
     if (formData.password.length > 72) {
-      setError('Password must be less than 72 characters)')
+      setError('Password must be less than 72 characters')
       return
     }
 
@@ -71,17 +70,14 @@ export default function RegisterPage() {
     } catch (err: any) {
       console.error("Register error:", err)
 
-  const backend = err?.response?.data?.detail
+      const backend = err?.response?.data?.detail
 
-  let message = "Registration failed"
+      let message = "Registration failed"
 
-  if (Array.isArray(backend)) {
-    message = backend[0]?.msg || message
-  } else if (typeof backend === "string") {
-    message = backend
-  }
-
-  setError(message)
+      if (Array.isArray(backend)) {
+        message = backend[0]?.msg || message
+      } else if (typeof backend === "string") {
+        message = backend
       }
 
       setError(message)
@@ -106,13 +102,11 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-4">
-
       <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
 
         <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
         <p className="text-gray-400 mb-6">Start your journey</p>
 
-        {/* ERROR */}
         {error && (
           <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 p-3 rounded-lg mb-4">
             <AlertCircle size={18} className="text-red-400" />
@@ -165,7 +159,7 @@ export default function RegisterPage() {
             </button>
           </div>
 
-          {/* 🔥 PASSWORD STRENGTH */}
+          {/* Password Strength */}
           <div className="h-2 rounded bg-gray-700 overflow-hidden">
             <div
               className={`h-full transition-all ${
@@ -204,7 +198,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      {/* 🔥 GLOBAL INPUT STYLE */}
+      {/* Global Styles */}
       <style jsx global>{`
         .input {
           width: 100%;
