@@ -102,7 +102,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     # ✅ Create token
     token = create_access_token({
         "sub": str(user.id),
-        "role": user.role.value
+        "role": _role_str(user.role),
     })
 
     return TokenResponse(
@@ -115,6 +115,13 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
 # LOGIN
 # ─────────────────────────────
 
+def _role_str(role) -> str:
+    """Safely extract role value — handles both Enum and plain string."""
+    if hasattr(role, "value"):
+        return role.value
+    return str(role)
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
 
@@ -124,9 +131,9 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     ).first()
 
     if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # 🔐 secure verification (matches updated hash logic)
+    # 🔐 secure verification
     if not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid password")
 
@@ -139,7 +146,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 
     token = create_access_token({
         "sub": str(user.id),
-        "role": user.role.value
+        "role": _role_str(user.role),
     })
 
     return TokenResponse(
