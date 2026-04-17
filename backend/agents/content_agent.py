@@ -110,3 +110,90 @@ class ContentAgent(BaseMCPAgent):
         )
 
         return self.ai.parse_json_response(response)
+
+    async def rewrite_news(
+        self,
+        original_text: str,
+        language: str = "en",
+        style: str = "news",
+    ) -> dict:
+        lang_instruction = (
+            "Rewrite in Hindi (Devanagari)" if language == "hi" else "Rewrite in English"
+        )
+        prompt = (
+            f"You are a professional news editor. {lang_instruction}.\n\n"
+            f"Style: {style}\n\n"
+            f"Original article:\n{original_text[:3000]}\n\n"
+            "Rewrite this article to be unique, well-structured, and engaging. "
+            "Return JSON:\n"
+            '{"title": "...", "rewritten_content": "...", "summary": "...", '
+            '"key_points": ["..."], "estimated_word_count": number}'
+        )
+        response = await self.ai.generate(
+            prompt,
+            self.system_prompt,
+            temperature=0.75,
+            json_mode=True,
+        )
+        return self.ai.parse_json_response(response)
+
+    async def generate_social_captions(
+        self,
+        topic: str,
+        platform: str = "instagram",
+        language: str = "en",
+        count: int = 3,
+    ) -> dict:
+        lang_instruction = (
+            "Write in Hindi" if language == "hi" else "Write in English"
+        )
+        platform_guidance = {
+            "instagram": "Use emojis, line breaks, and 5-10 relevant hashtags.",
+            "twitter": "Max 280 characters per caption. Punchy and concise.",
+            "linkedin": "Professional tone, no excessive emojis, thought-leadership style.",
+            "facebook": "Conversational, shareable, include a call-to-action.",
+        }.get(platform, "Engaging and platform-appropriate.")
+
+        prompt = (
+            f"Generate {count} unique social media captions for {platform}.\n"
+            f"Topic: {topic}\n"
+            f"{lang_instruction}. {platform_guidance}\n\n"
+            "Return JSON:\n"
+            '{"captions": [{"caption": "...", "hashtags": ["..."]}]}'
+        )
+        response = await self.ai.generate(
+            prompt,
+            self.system_prompt,
+            temperature=0.85,
+            json_mode=True,
+        )
+        return self.ai.parse_json_response(response)
+
+    async def translate_content(
+        self,
+        content: str,
+        target_language: str,
+    ) -> str:
+        lang_names = {
+            "hi": "Hindi (Devanagari script)",
+            "en": "English",
+            "es": "Spanish",
+            "fr": "French",
+            "de": "German",
+            "ar": "Arabic",
+            "pt": "Portuguese",
+            "ja": "Japanese",
+            "zh": "Chinese (Simplified)",
+        }
+        lang_name = lang_names.get(target_language, target_language)
+        prompt = (
+            f"Translate the following content to {lang_name}.\n"
+            "Preserve formatting, headings, and meaning exactly.\n"
+            "Return ONLY the translated text, no explanations.\n\n"
+            f"Content:\n{content[:4000]}"
+        )
+        return await self.ai.generate(
+            prompt,
+            temperature=0.3,
+            max_tokens=4096,
+        )

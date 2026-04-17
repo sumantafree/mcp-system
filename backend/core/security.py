@@ -4,12 +4,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from core.config import settings
-import hashlib
-
-# Password hashing context
 
 ALGORITHM = "HS256"
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+# Password hashing — bcrypt is stable and included in passlib[bcrypt]
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ─────────────────────────────
 # PASSWORD HASHING (SAFE FIX)

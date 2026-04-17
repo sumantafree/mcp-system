@@ -136,26 +136,54 @@ First write your reasoning (prefix with THINKING:), then your final answer (pref
                     await asyncio.sleep(delay)
                 try:
                     if provider == "gemini":
-                        return await self._gemini_generate(prompt)
+                        return await self._gemini_generate(prompt, system_prompt, temperature, max_tokens)
                     else:
-                        return await self._openai_generate(prompt)
+                        return await self._openai_generate(prompt, system_prompt, temperature, max_tokens)
                 except Exception:
                     continue
 
         raise RuntimeError("All providers failed")
 
-    async def _gemini_generate(self, prompt: str) -> str:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = await asyncio.to_thread(model.generate_content, prompt)
+    async def _gemini_generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> str:
+        config = genai.types.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        )
+        model = genai.GenerativeModel(
+            "gemini-1.5-flash",
+            system_instruction=system_prompt or "",
+        )
+        response = await asyncio.to_thread(
+            model.generate_content, prompt, generation_config=config
+        )
         return response.text.strip()
 
-    async def _openai_generate(self, prompt: str) -> str:
+    async def _openai_generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> str:
         if not openai_async:
             raise ValueError("OpenAI not configured")
 
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         response = await openai_async.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
         return response.choices[0].message.content.strip()
 

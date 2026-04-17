@@ -38,17 +38,32 @@ apiClient.interceptors.response.use(
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 
 export const auth = {
-  login: (email: string, password: string) =>
-    apiClient.post('/auth/login', { email, password }),
+  login: (email: string, password: string) => {
+    const form = new URLSearchParams()
+    form.append('username', email)
+    form.append('password', password)
+    return apiClient.post('/auth/login', form, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+  },
 
   register: (data: {
     email: string
-    username: string
-    full_name: string
+    username?: string
+    full_name?: string
     password: string
   }) => apiClient.post('/auth/register', data),
 
   getMe: () => apiClient.get('/auth/me'),
+
+  updateProfile: (data: {
+    full_name?: string
+    phone?: string
+    timezone?: string
+    avatar_url?: string
+  }) => apiClient.patch('/auth/me', data),
+
+  logout: () => apiClient.post('/auth/logout'),
 }
 
 // ── TASKS ─────────────────────────────────────────────────────────────────────
