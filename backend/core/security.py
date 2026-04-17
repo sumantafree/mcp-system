@@ -7,22 +7,33 @@ from core.config import settings
 
 ALGORITHM = "HS256"
 
-# Password hashing — bcrypt is stable and included in passlib[bcrypt]
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt__truncate_error=False → passlib silently truncates to 72 bytes
+# instead of raising ValueError. Belt-and-suspenders with _safe_pw() below.
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__truncate_error=False,
+)
+
 
 # ─────────────────────────────
-# PASSWORD HASHING (SAFE FIX)
+# PASSWORD HASHING
 # ─────────────────────────────
 
-def _truncate(password: str) -> str:
-    """bcrypt silently truncates at 72 bytes — enforce it explicitly."""
-    return password.encode("utf-8")[:72].decode("utf-8", errors="ignore")
+def _safe_pw(password: str) -> str:
+    """Clip to 72 bytes before bcrypt ever sees it."""
+    encoded = password.encode("utf-8")
+    if len(encoded) <= 72:
+        return password
+    return encoded[:72].decode("utf-8", errors="ignore")
+
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(_truncate(password))
+    return pwd_context.hash(_safe_pw(password))
+
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(_truncate(plain), hashed)
+    return pwd_context.verify(_safe_pw(plain), hashed)
 
 
 # ─────────────────────────────
